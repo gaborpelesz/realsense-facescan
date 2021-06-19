@@ -1,0 +1,5 @@
+*.ply
+*.onnx
+*.png
+
+__pycache__

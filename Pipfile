@@ -1,0 +1,20 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pyrealsense2 = "*"
+numpy = "*"
+opencv-python = "*"
+open3d = "*"
+pandas = "*"
+numba = "*"
+openvino = "*"
+onnx = "*"
+onnxruntime = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.8"
