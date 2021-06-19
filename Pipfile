@@ -9,8 +9,6 @@ numpy = "*"
 opencv-python = "*"
 open3d = "*"
 pandas = "*"
-numba = "*"
-openvino = "*"
 onnx = "*"
 onnxruntime = "*"
 
