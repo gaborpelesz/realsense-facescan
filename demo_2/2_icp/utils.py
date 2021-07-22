@@ -15,9 +15,9 @@ def load_scan_frames():
 
     return scan_frames
 
-def draw_all(pcds):
+def draw_all(pcds, window_name='Extracted face'):
     o3d.visualization.draw_geometries_with_custom_animation(pcds,
-                                            window_name='Extracted face',
+                                            window_name=window_name,
                                             width=1920,
                                             height=1080,
                                             left=50,

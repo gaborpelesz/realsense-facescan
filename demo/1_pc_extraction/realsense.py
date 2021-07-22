@@ -86,7 +86,7 @@ class Realsense:
                 # if either of the frames is invalid, skip
                 if not color_frame or not color_frame_aligned or not depth_frame:
                     continue
-
+                
                 points3d = pc.calculate(depth_frame)
                 pc.map_to(color_frame_aligned)
 

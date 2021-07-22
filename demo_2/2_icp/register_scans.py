@@ -59,15 +59,12 @@ def colored_point_cloud_reg(source, target, in_transformation = np.identity(4)):
     target.estimate_normals(
         search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=20))
 
-    voxel_radius = [0.04, 0.02, 0.01, 0.001]
-
-    #voxel_radius = [0.02, 0.01, 0.002]
-    #voxel_radius = [0.002, 0.001, 0.0001]
-    #voxel_radius = [0.04, 0.02, 0.005]
-
-    max_iter = [1000, 800, 400, 2000]
+    voxel_radius = [0.02, 0.01, 0.001]
+    max_iter = len(voxel_radius) * [1000]
     current_transformation = in_transformation
-    for scale in range(3):
+    for scale in range(len(voxel_radius)):
+        print(f"COLOR ITER: {scale}")
+
         iter = max_iter[scale]
         radius = voxel_radius[scale]
 
@@ -80,7 +77,7 @@ def colored_point_cloud_reg(source, target, in_transformation = np.identity(4)):
             o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
 
         result_icp = o3d.pipelines.registration.registration_colored_icp(
-            source_down, target_down, radius, current_transformation,
+            source_down, target_down, radius*100, current_transformation,
             o3d.pipelines.registration.TransformationEstimationForColoredICP(),
             o3d.pipelines.registration.ICPConvergenceCriteria(relative_fitness=1e-6,
                                                             relative_rmse=1e-6,
@@ -92,10 +89,41 @@ def colored_point_cloud_reg(source, target, in_transformation = np.identity(4)):
 def registration_process(target, target_down, target_fpfh, source, voxel_size=0.4):
     source_down, source_fpfh = preprocess_point_cloud(source, voxel_size=voxel_size)
 
+    icp = lambda: None
+    icp.transformation = np.identity(4)
+
+    # BEST ICP FOR SCAN_FRAMES_SAVED
+    # icp.transformation = np.array([[ 0.70241392,  0.15845887,  0.69390595,  0.49180339],
+    #                         [-0.11433526,  0.987363  , -0.10973497, -0.03898585],
+    #                         [-0.70252555, -0.00225854,  0.71165494, -0.15097216],
+    #                         [ 0.        ,  0.        ,  0.        ,  1.        ]])
+
+    # BEST ICP FOR SCAN_FRAMES_SAVED2
+    #   the scan_frames_saved2 folder contains one image pair
+    #   but not those with which this extrinsic matrix was achieved
+    # icp.transformation = np.array([[ 9.34884337e-01,  7.60460719e-02,  3.46710644e-01,  2.17561697e-01],
+    #                                [-7.92610466e-02,  9.96841750e-01, -4.92049612e-03,  1.06019115e-04],
+    #                                [-3.45989830e-01, -2.28805538e-02,  9.37959230e-01,  7.34321050e-03],
+    #                                [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]])
+
+    # icp.transformation = np.array([[ 1,0,0,  -0.06474042],
+    #                                [0, 1, 0,  -0.01945646],
+    #                                [0, 0, 1,  0.00924079],
+    #                                [0, 0, 0,  1]])
+    #icp.transformation = [[0.6028712676826402, 0.35360037760465957, 0.6806900710434488, 0.5245255423253641], [-0.3363973088995225, 0.8859459713340643, -0.14175819894448552, -0.08276327651465193], [-0.6598610847011457, -0.12390776873790263, 0.7067968592318049, -0.1801860094633929], [0.0, 0.0, 0.0, 1.0]]
+    icp.transformation = [[0.6340488292210481, 0.3519358903717249, 0.6885660543707393, 0.5321429759538554], [-0.3630413981646129, 0.9216782203534285, -0.13678523803695952, -0.07979600137164221], [-0.6827759701264765, -0.16324946307539462, 0.7121562942384688, -0.17414280600270093], [0.0, 0.0, 0.0, 1.0]]
+    
+    icp.transformation = np.array(icp.transformation)
+
 
     #icp = fast_global_reg(source_down, target_down, source_fpfh, target_fpfh)
-    icp = colored_point_cloud_reg(source, target) #, icp.transformation)
+
+    icp = colored_point_cloud_reg(source, target, icp.transformation)
     #icp = point_to_plane_reg(source, target, icp.transformation)
+    #print(icp)
+    print(icp.transformation)
+    print()
+    print(icp.transformation.tolist())
 
     return icp.transformation
 
@@ -205,6 +233,7 @@ if __name__ == "__main__":
     t0 = time.time()
     poses = full_registration_greedy(face_pcds)
     #poses = simple_registration(face_pcds)
+
 
     pcd_combined = o3d.geometry.PointCloud()
     for i in range(len(face_pcds)):

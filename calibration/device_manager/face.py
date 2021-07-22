@@ -5,8 +5,8 @@ import numpy as np
 import cv2
 import open3d as o3d
 
-import utils
-import scrfd
+from calibration.device_manager import utils
+from calibration.device_manager import scrfd
 
 import threading
 
@@ -32,20 +32,19 @@ class FacePointCloud:
                                                              cy=369.587)
         self.depth_scale = 1 / 0.0010000000474974513
 
-        self.index = 1
-        self.index_lock = threading.Lock()
         self._manual_adjustments = manual_adjustments
 
     def create_from_rgbd(self, rgb, d, save_to_file=None):
-        # masking the face's bounding box in the depth image
         t0 = time.time()
 
         # scale box by 20% so there will be no 3D points on 
         # the face that might accidentally be masked out
-        bbox = scrfd.detect_face(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR), scale_box=1.2) # bbox (, kpss)
+        bbox = scrfd.detect_face(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR), scale_box=1.2)
         
         if self._manual_adjustments:
             bbox = self.manual_face_detection(rgb, initial_bbox=bbox)
+        
+        # masking the face's bounding box in the depth image
         d = self.mask_depth(d, bbox)
 
         # creating PointCloud in open3d
@@ -79,17 +78,10 @@ class FacePointCloud:
         #                points = points - center
         # pcd.translate(np.array([0.0, 0.0, 0.0]), relative=False)
 
-        # draw 3d point cloud with open3d viewer
-        # o3d.visualization.draw_geometries_with_custom_animation([pcd],
-        #                                             window_name='Extracted face',
-        #                                             width=1920,
-        #                                             height=1080,
-        #                                             left=50,
-        #                                             top=50,
-        #                                             optional_view_trajectory_json_file='view.json')
-
         if not save_to_file is None:
             threading.Thread(target=self.ply_write_indexed, args=(save_to_file, pcd)).start()
+
+        return pcd
 
     @staticmethod
     def ply_write_indexed(f_path, pcd):

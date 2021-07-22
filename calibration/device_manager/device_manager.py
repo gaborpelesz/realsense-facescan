@@ -93,7 +93,7 @@ def post_process_depth_frame(depth_frame, decimation_magnitude=1.0, spatial_magn
 #----------------------------#
 #----------------------------#
 
-class DeviceManager:
+class RealSenseDeviceManager:
     def __init__(self, context, D400_pipeline_configuration, L500_pipeline_configuration = rs.config()):
         """
         Class to manage the Intel RealSense devices
@@ -292,75 +292,67 @@ class DeviceManager:
         self.D400_config.disable_all_streams()
         self.L500_config.disable_all_streams()
 
-##############################
-#   Testing device manager   #
-#----------------------------#
-#----------------------------#
+# END OF REALSENSE DEVICE MANAGER
 
-if __name__ == "__main__":
-    import face
+#################
+#   My device   #
+#---------------#
+import time
 
-    fpce = face.FacePointCloud(manual_adjustments=True)
+class DeviceManager:
+    def __init__(self):
+        self.device_left_serial = '932122060336'
+        self.device_right_serial  = '932122060061'
+        self.camera_model_family = 'D400'
 
-    # left-right from the camera perspective.
-    device_left_serial = '932122060336'
-    device_right_serial  = '932122060061'
-    camera_model_family = 'D400'
+        self.context = rs.context()
+        self.D415_config = rs.config()
+        self.D415_config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 15)
+        self.D415_config.enable_stream(rs.stream.infrared, 1, 1280, 720, rs.format.y8, 15)
+        self.D415_config.enable_stream(rs.stream.infrared, 2, 1280, 720, rs.format.y8, 15)
+        self.D415_config.enable_stream(rs.stream.color, 1280, 720, rs.format.rgb8, 15)
 
-    context = rs.context()
-    D415_config = rs.config()
-    D415_config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 15)
-    D415_config.enable_stream(rs.stream.infrared, 1, 1280, 720, rs.format.y8, 15)
-    D415_config.enable_stream(rs.stream.infrared, 2, 1280, 720, rs.format.y8, 15)
-    D415_config.enable_stream(rs.stream.color, 1280, 720, rs.format.rgb8, 15)
+        self.rs_manager = RealSenseDeviceManager(self.context, self.D415_config)
+        self.rs_pointcloud = rs.pointcloud()
 
-    align = rs.align(rs.stream.color)
+        self.stopping = False
 
-    manager = DeviceManager(context, D415_config)
+    def start(self, callback):
+        self.stopping = False
 
-    #try:
-    manager.enable_all_devices(enable_ir_emitter=True)
-    manager.enable_advanced_mode('./advanced_config.json')
+        try:
+            # TODO find out in what order the following two lines should be
+            self.rs_manager.enable_advanced_mode('calibration/device_manager/advanced_config.json')
+            self.rs_manager.enable_all_devices(enable_ir_emitter=True)
 
-    # 30 frames at the beginning to let auto-exposure be set
-    for i in range(30):
-        print(f"init camera: {100/30 * (i+1):.2f}%    ", end='\r')
-        frames = manager.poll_frames()
+            # 30 frames at the beginning to let auto-exposure set itself
+            for i in range(30):
+                print(f"init camera: {100/30 * (i+1):.2f}%    ", end='\r')
+                frames = self.rs_manager.poll_frames()
+            print()
 
+            while not self.stopping:
+                t0 = time.perf_counter()
 
-    num_frames = 1
-    for i in range(num_frames):
-        print(f"frame: {i+1}/{num_frames}            ", end='\r')
-        frames = manager.poll_frames()
+                frames = self.rs_manager.poll_frames()
 
-        left_rgb = np.asanyarray(frames[device_left_serial, camera_model_family][rs.stream.color].get_data())
-        left_d = np.asanyarray(frames[device_left_serial, camera_model_family][rs.stream.depth].get_data())
-        right_rgb = np.asanyarray(frames[device_right_serial, camera_model_family][rs.stream.color].get_data())
-        right_d = np.asanyarray(frames[device_right_serial, camera_model_family][rs.stream.depth].get_data())
+                left_rgb = np.asanyarray(frames[self.device_left_serial, self.camera_model_family][rs.stream.color].get_data())
+                left_d = np.asanyarray(frames[self.device_left_serial, self.camera_model_family][rs.stream.depth].get_data())
+                right_rgb = np.asanyarray(frames[self.device_right_serial, self.camera_model_family][rs.stream.color].get_data())
+                right_d = np.asanyarray(frames[self.device_right_serial, self.camera_model_family][rs.stream.depth].get_data())
 
-        fpce.create_from_rgbd(left_rgb, left_d, f"../scan_frames/1.ply") #, f"frames/device_left/{i+1}.ply")
-        fpce.create_from_rgbd(right_rgb, right_d, f"../scan_frames/2.ply") #, f"frames/device_right/{i+1}.ply")
+                callback(left_rgb, left_d, right_rgb, right_d) # giving back to callback, maybe run on another thread?
 
-        # cv2.imshow("rgb left", left_rgb)
-        # cv2.imshow("rgb right", right_rgb)
-        # cv2.waitKey(10)
+                t1 = time.perf_counter()
 
-    # np.save("frames/device_left/left_rgb.npy", left_rgb)
-    # np.save("frames/device_left/left_d.npy", left_d)
-    # np.save("frames/device_right/right_rgb.npy", right_rgb)
-    # np.save("frames/device_right/right_d.npy", right_d)
+                print(f"FPS: {1. / (t1-t0):.2f}", end='\r')
+            print() # compensate \r
 
-    #fpce.create_from_rgbd(left_rgb, left_d)
-    #fpce.create_from_rgbd(right_rgb, right_d)
+        except Exception as e:
+            print(e)
+            print("DeviceManager->start(): Unknown exception has occured")
+        finally:
+            self.rs_manager.disable_streams()
 
-    print()
-    
-    # except Exception as e:
-    #     print("Some error occured during processing")
-    #     print(e)
-
-    #finally:
-    manager.disable_streams()
-
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    def stop(self):
+        self.stopping = True        

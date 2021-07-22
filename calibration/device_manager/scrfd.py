@@ -73,7 +73,7 @@ class SCRFD:
         self.taskname = 'detection'
         if self.session is None:
             assert self.model_file is not None
-            assert osp.exists(self.model_file)
+            assert osp.exists(self.model_file), f"Not found model file: {self.model_file}"
             self.session = onnxruntime.InferenceSession(self.model_file, None)
         self.center_cache = {}
         self.nms_threshold = 0.4
@@ -303,7 +303,7 @@ class SCRFD:
 
         return keep
 
-detector = SCRFD("./models/scrfd_10g_bnkps.onnx")
+detector = SCRFD("calibration/device_manager/models/scrfd_10g_bnkps.onnx")
 detector.prepare(-1)
 
 def bbox_dist_from_center(bbox, center):
@@ -313,10 +313,10 @@ def bbox_dist_from_center(bbox, center):
 def detect_face(img, scale_box=1):
     bboxes, kpss = detector.detect(img, 0.5, (640,640))
 
-    if len(bboxes) == 0:
+    if not bboxes is None or len(bboxes) == 0:
         return [(0, 0), (img.shape[0], img.shape[1])]
 
-    # return the bbox which center is the closest to the image center
+    # return the bbox whose center is the closest to the image center
     image_center = img.shape[0] / 2, img.shape[1] / 2
     dists = [bbox_dist_from_center(b, image_center) for b in bboxes]
     
