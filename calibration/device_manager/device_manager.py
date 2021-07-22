@@ -152,6 +152,11 @@ class RealSenseDeviceManager:
             self.D400_config.enable_device(device_serial)
             pipeline_profile = pipeline.start(self.D400_config)
 
+        profile = pipeline.get_active_profile()
+        depth_profile = rs.video_stream_profile(profile.get_stream(rs.stream.color))
+        depth_intrinsics = depth_profile.get_intrinsics()
+
+        #print(f"{device_serial} instrinsics:\n{depth_intrinsics}")
 
         # Set the acquisition parameters
         sensor = pipeline_profile.get_device().first_depth_sensor()
